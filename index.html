@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Химиялық өндірістің ғылыми принциптері</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'void': '#050508',
+                        'neon-cyan': '#00FFFF',
+                        'neon-magenta': '#FF00FF',
+                        'neon-lime': '#39FF14',
+                        'neon-gold': '#FFD700',
+                        'neon-orange': '#FF6B35',
+                    },
+                    fontFamily: {
+                        'display': ['Syne', 'sans-serif'],
+                        'body': ['Space Grotesk', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scrollbar-width: none; }
+        html::-webkit-scrollbar { display: none; }
+        body { background: #050508; color: #fff; font-family: 'Space Grotesk', sans-serif; overflow-x: hidden; -webkit-font-smoothing: antialiased; cursor: none; }
+        
+        /* Cursor */
+        .cursor-wrapper { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100000; mix-blend-mode: difference; }
+        .cursor { position: fixed; width: 40px; height: 40px; border: 1px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; transition: width 0.4s cubic-bezier(0.16,1,0.3,1), height 0.4s cubic-bezier(0.16,1,0.3,1), background 0.3s ease; transform: translate(-50%, -50%); }
+        .cursor-dot { position: fixed; width: 8px; height: 8px; background: #fff; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); }
+        .cursor.hover { width: 80px; height: 80px; background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.8); }
+        .cursor.clicking { transform: translate(-50%, -50%) scale(0.8); }
+        
+        /* Overlays */
+        .noise-overlay { position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); opacity: 0.035; pointer-events: none; z-index: 10000; }
+        .scan-lines { position: fixed; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,255,0.008) 2px, rgba(0,255,255,0.008) 4px); pointer-events: none; z-index: 9999; }
+        
+        #webgl-canvas { position: fixed; inset: 0; z-index: 1; }
+        .content-layer { position: relative; z-index: 10; }
+        
+        /* Progress Bar */
+        .progress-bar { position: fixed; top: 0; left: 0; height: 2px; background: linear-gradient(90deg, #00FFFF, #FF00FF, #39FF14, #FFD700, #00FFFF); background-size: 200% 100%; z-index: 10002; transform-origin: left; transform: scaleX(0); animation: gradientShift 3s linear infinite; }
+        @keyframes gradientShift { 0% { background-position: 0% 0%; } 100% { background-position: 200% 0%; } }
+        
+        /* Typography */
+        .heading-display { font-family: 'Syne', sans-serif; font-weight: 700; letter-spacing: -0.04em; line-height: 0.95; }
+        .heading-xl { font-size: clamp(3rem, 12vw, 10rem); }
+        .heading-lg { font-size: clamp(2rem, 6vw, 5rem); }
+        
+        .text-gradient-cyan { background: linear-gradient(135deg, #00FFFF 0%, #0088FF 50%, #00FFFF 100%); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradientText 4s ease infinite; }
+        .text-gradient-magenta { background: linear-gradient(135deg, #FF00FF 0%, #FF3366 50%, #FF00FF 100%); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradientText 4s ease infinite; }
+        .text-gradient-lime { background: linear-gradient(135deg, #39FF14 0%, #00FF88 50%, #39FF14 100%); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradientText 4s ease infinite; }
+        .text-gradient-gold { background: linear-gradient(135deg, #FFD700 0%, #FF8C00 50%, #FFD700 100%); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradientText 4s ease infinite; }
+        .text-gradient-fire { background: linear-gradient(135deg, #FF6B35 0%, #FF3366 50%, #FF6B35 100%); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradientText 4s ease infinite; }
+        @keyframes gradientText { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        
+        .glow-cyan { text-shadow: 0 0 60px rgba(0,255,255,0.5), 0 0 120px rgba(0,255,255,0.3); }
+        
+        /* Glass Cards */
+        .glass-card { position: relative; background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; overflow: hidden; transition: all 0.6s cubic-bezier(0.16,1,0.3,1); }
+        .glass-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%); }
+        .glass-card::after { content: ''; position: absolute; inset: 0; background: radial-gradient(800px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(0,255,255,0.06), transparent 40%); opacity: 0; transition: opacity 0.5s ease; }
+        .glass-card:hover::after { opacity: 1; }
+        .glass-card:hover { border-color: rgba(0,255,255,0.2); transform: translateY(-8px) scale(1.01); box-shadow: 0 30px 60px rgba(0,0,0,0.3), 0 0 60px rgba(0,255,255,0.1); }
+        .glass-card.glow-cyan:hover { border-color: rgba(0,255,255,0.3); box-shadow: 0 30px 60px rgba(0,0,0,0.3), 0 0 80px rgba(0,255,255,0.15); }
+        .glass-card.glow-magenta:hover { border-color: rgba(255,0,255,0.3); box-shadow: 0 30px 60px rgba(0,0,0,0.3), 0 0 80px rgba(255,0,255,0.15); }
+        .glass-card.glow-lime:hover { border-color: rgba(57,255,20,0.3); box-shadow: 0 30px 60px rgba(0,0,0,0.3), 0 0 80px rgba(57,255,20,0.15); }
+        .glass-card.glow-gold:hover { border-color: rgba(255,215,0,0.3); box-shadow: 0 30px 60px rgba(0,0,0,0.3), 0 0 80px rgba(255,215,0,0.15); }
+        
+        /* 3D Tilt */
+        .tilt-card { transform-style: preserve-3d; perspective: 1000px; }
+        .tilt-card-inner { transition: transform 0.1s ease-out; transform-style: preserve-3d; }
+        
+        /* Badges */
+        .section-badge { display: inline-flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1.2rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); border-radius: 100px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; }
+        .badge-dot { width: 6px; height: 6px; border-radius: 50%; animation: badgePulse 2s ease-in-out infinite; }
+        @keyframes badgePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
+        
+        /* Sections */
+        .scroll-section { position: relative; min-height: 100vh; padding: 8rem 2rem; }
+        .section-inner { max-width: 1400px; margin: 0 auto; }
+        .reveal { opacity: 0; transform: translateY(80px); }
+        .skew-container { will-change: transform; }
+        
+        /* Stats */
+        .stat-number { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(2.5rem, 5vw, 4rem); line-height: 1; }
+        .stat-card { position: relative; padding: 2rem; text-align: center; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 20px; transition: all 0.5s cubic-bezier(0.16,1,0.3,1); overflow: hidden; }
+        .stat-card::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 0%, rgba(0,255,255,0.1), transparent 70%); opacity: 0; transition: opacity 0.5s ease; }
+        .stat-card:hover::before { opacity: 1; }
+        .stat-card:hover { transform: translateY(-10px) scale(1.02); border-color: rgba(0,255,255,0.3); }
+        
+        /* Principle Cards */
+        .principle-card { position: relative; padding: 2rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 20px; transition: all 0.5s cubic-bezier(0.16,1,0.3,1); overflow: hidden; }
+        .principle-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: linear-gradient(90deg, transparent, var(--card-color, #00FFFF), transparent); transform: scaleX(0); transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); }
+        .principle-card:hover::before { transform: scaleX(1); }
+        .principle-card:hover { transform: translateY(-8px); background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); }
+        
+        /* Map */
+        .map-container { position: relative; width: 100%; aspect-ratio: 16/9; }
+        .map-node { position: absolute; width: 20px; height: 20px; cursor: none; transition: all 0.4s cubic-bezier(0.16,1,0.3,1); }
+        .map-node-inner { position: relative; width: 100%; height: 100%; background: rgba(0,255,255,0.3); border: 2px solid #00FFFF; border-radius: 50%; transition: all 0.4s cubic-bezier(0.16,1,0.3,1); }
+        .map-node-pulse { position: absolute; inset: -10px; border: 1px solid rgba(0,255,255,0.3); border-radius: 50%; animation: nodePulse 2s ease-out infinite; }
+        @keyframes nodePulse { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
+        .map-node-core { position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; background: #00FFFF; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 20px rgba(0,255,255,0.8); }
+        .map-node:hover .map-node-inner { transform: scale(1.5); box-shadow: 0 0 40px rgba(0,255,255,0.6); }
+        .map-label { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 12px; white-space: nowrap; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; letter-spacing: 0.1em; color: rgba(255,255,255,0.5); opacity: 0; transition: all 0.3s ease; }
+        .map-node:hover .map-label { opacity: 1; transform: translateX(-50%) translateY(5px); }
+        
+        /* Nav Dots */
+        .nav-dots { position: fixed; right: 2rem; top: 50%; transform: translateY(-50%); z-index: 10000; display: flex; flex-direction: column; gap: 1rem; }
+        .nav-dot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); cursor: none; transition: all 0.5s cubic-bezier(0.16,1,0.3,1); position: relative; }
+        .nav-dot::before { content: ''; position: absolute; inset: -4px; border: 1px solid transparent; border-radius: 50%; transition: all 0.5s cubic-bezier(0.16,1,0.3,1); }
+        .nav-dot:hover { background: rgba(255,255,255,0.3); transform: scale(1.3); }
+        .nav-dot.active { background: #00FFFF; border-color: #00FFFF; box-shadow: 0 0 20px rgba(0,255,255,0.5); }
+        .nav-dot.active::before { border-color: rgba(0,255,255,0.3); }
+        
+        /* Process Flow */
+        .process-flow { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem; }
+        .process-step { padding: 1rem 1.5rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; transition: all 0.4s cubic-bezier(0.16,1,0.3,1); }
+        .process-step:hover { background: rgba(255,255,255,0.05); transform: translateY(-4px); }
+        .process-arrow { font-size: 1.5rem; opacity: 0.5; animation: arrowPulse 2s ease-in-out infinite; }
+        @keyframes arrowPulse { 0%, 100% { opacity: 0.3; transform: translateX(0); } 50% { opacity: 0.8; transform: translateX(5px); } }
+        
+        /* Demo Areas */
+        .demo-area { position: relative; width: 100%; min-height: 400px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; overflow: hidden; }
+        .demo-area::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, rgba(0,255,255,0.05), transparent 70%); }
+        
+        /* Counter Flow */
+        .flow-column { position: relative; width: 120px; height: 280px; border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; overflow: hidden; }
+        .flow-up, .flow-down { position: absolute; width: 40px; height: 100%; }
+        .flow-up { left: 10px; background: linear-gradient(to top, rgba(255,107,53,0.4), transparent); }
+        .flow-down { right: 10px; background: linear-gradient(to bottom, rgba(0,255,255,0.4), transparent); }
+        .flow-particle { position: absolute; width: 8px; height: 8px; border-radius: 50%; animation: flowParticle 3s linear infinite; }
+        .flow-particle.up { background: #FF6B35; left: 26px; animation-name: flowUp; }
+        .flow-particle.down { background: #00FFFF; right: 26px; animation-name: flowDown; }
+        @keyframes flowUp { 0% { bottom: 0; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { bottom: 100%; opacity: 0; } }
+        @keyframes flowDown { 0% { top: 0; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+        .flow-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 50px; height: 50px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.1), transparent); animation: flowPulse 2s ease-in-out infinite; }
+        @keyframes flowPulse { 0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; } 50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; } }
+        
+        /* Fluidized Bed */
+        .fluidized-container { position: relative; width: 180px; height: 300px; border: 2px solid rgba(255,255,255,0.2); border-radius: 12px 12px 0 0; overflow: hidden; }
+        .fluidized-particle { position: absolute; width: 12px; height: 12px; background: rgba(57,255,20,0.6); border-radius: 50%; animation: fluidize 2s ease-in-out infinite; }
+        @keyframes fluidize { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-30px) scale(1.1); } }
+        .gas-flow { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; }
+        .gas-arrow { width: 20px; height: 40px; background: linear-gradient(to top, rgba(57,255,20,0.5), transparent); border-radius: 10px; animation: gasFlow 1s ease-in-out infinite; }
+        @keyframes gasFlow { 0%, 100% { transform: scaleY(0.8); opacity: 0.5; } 50% { transform: scaleY(1.2); opacity: 1; } }
+        
+        /* Heat Exchange */
+        .heat-exchange { display: flex; width: 280px; height: 200px; border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; overflow: hidden; }
+        .heat-side { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; }
+        .heat-hot { background: linear-gradient(135deg, rgba(255,107,53,0.3), rgba(255,51,102,0.3)); }
+        .heat-cold { background: linear-gradient(135deg, rgba(0,136,255,0.3), rgba(0,255,255,0.3)); }
+        .heat-transfer { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; display: flex; align-items: center; justify-content: center; }
+        .heat-arrow { font-size: 2rem; animation: heatPulse 1.5s ease-in-out infinite; }
+        @keyframes heatPulse { 0%, 100% { opacity: 0.3; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.1); } }
+        
+        /* Loader */
+        .loader { position: fixed; inset: 0; background: #050508; z-index: 100000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3rem; }
+        .loader-visual { position: relative; width: 150px; height: 150px; }
+        .loader-ring { position: absolute; inset: 0; border: 2px solid transparent; border-radius: 50%; }
+        .loader-ring:nth-child(1) { border-top-color: #00FFFF; animation: loaderSpin 1.5s linear infinite; }
+        .loader-ring:nth-child(2) { inset: 15px; border-right-color: #FF00FF; animation: loaderSpin 2s linear infinite reverse; }
+        .loader-ring:nth-child(3) { inset: 30px; border-bottom-color: #39FF14; animation: loaderSpin 2.5s linear infinite; }
+        .loader-ring:nth-child(4) { inset: 45px; border-left-color: #FFD700; animation: loaderSpin 3s linear infinite reverse; }
+        @keyframes loaderSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .loader-core { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; background: radial-gradient(circle, rgba(255,255,255,0.2), transparent); border-radius: 50%; animation: loaderPulse 1s ease-in-out infinite; }
+        @keyframes loaderPulse { 0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; } 50% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; } }
+        .loader-text { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; letter-spacing: 0.3em; color: rgba(255,255,255,0.4); }
+        .loader-progress-container { width: 200px; height: 2px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+        .loader-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #00FFFF, #FF00FF, #39FF14); transition: width 0.3s ease; }
+        .loader-percentage { font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 700; color: rgba(255,255,255,0.1); }
+        
+        /* Scroll Indicator */
+        .scroll-indicator { position: absolute; bottom: 4rem; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+        .scroll-mouse { width: 26px; height: 42px; border: 2px solid rgba(255,255,255,0.2); border-radius: 13px; position: relative; }
+        .scroll-wheel { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: 4px; height: 10px; background: #00FFFF; border-radius: 2px; animation: scrollWheel 2s ease-in-out infinite; }
+        @keyframes scrollWheel { 0% { transform: translateX(-50%) translateY(0); opacity: 1; } 100% { transform: translateX(-50%) translateY(20px); opacity: 0; } }
+        .scroll-text { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; letter-spacing: 0.3em; color: rgba(255,255,255,0.3); }
+        
+        /* Floating & Marquee */
+        .float-element { animation: floatY 6s ease-in-out infinite; }
+        .float-element-delayed { animation: floatY 6s ease-in-out infinite; animation-delay: -3s; }
+        @keyframes floatY { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-20px) rotate(2deg); } }
+        .marquee { overflow: hidden; white-space: nowrap; }
+        .marquee-content { display: inline-flex; animation: marquee 30s linear infinite; }
+        .marquee-content span { padding: 0 2rem; font-family: 'Syne', sans-serif; font-size: clamp(2rem, 8vw, 6rem); font-weight: 700; color: rgba(255,255,255,0.03); -webkit-text-stroke: 1px rgba(255,255,255,0.1); }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        
+        /* Responsive */
+        @media (max-width: 1024px) { .nav-dots { display: none; } .scroll-section { padding: 6rem 1.5rem; } }
+        @media (max-width: 768px) { .cursor, .cursor-dot, .cursor-wrapper { display: none; } body { cursor: auto; } .scroll-section { padding: 4rem 1rem; } }
+    </style>
+</head>
+<body>
+    <div class="cursor-wrapper"><div class="cursor" id="cursor"></div><div class="cursor-dot" id="cursor-dot"></div></div>
+    <div class="noise-overlay"></div>
+    <div class="scan-lines"></div>
+    
+    <div class="loader" id="loader">
+        <div class="loader-percentage" id="loader-percentage">0</div>
+        <div class="loader-visual"><div class="loader-ring"></div><div class="loader-ring"></div><div class="loader-ring"></div><div class="loader-ring"></div><div class="loader-core"></div></div>
+        <div class="loader-text">ХИМИЯЛЫҚ РЕАКТОР ИНИЦИАЛИЗАЦИЯСЫ</div>
+        <div class="loader-progress-container"><div class="loader-progress-bar" id="loader-progress"></div></div>
+    </div>
+    
+    <div class="progress-bar" id="progress-bar"></div>
+    
+    <nav class="nav-dots" id="nav-dots">
+        <div class="nav-dot active" data-section="0"></div>
+        <div class="nav-dot" data-section="1"></div>
+        <div class="nav-dot" data-section="2"></div>
+        <div class="nav-dot" data-section="3"></div>
+        <div class="nav-dot" data-section="4"></div>
+        <div class="nav-dot" data-section="5"></div>
+        <div class="nav-dot" data-section="6"></div>
+        <div class="nav-dot" data-section="7"></div>
+        <div class="nav-dot" data-section="8"></div>
+    </nav>
+    
+    <canvas id="webgl-canvas"></canvas>
+    
+    <main class="content-layer">
+        <!-- HERO -->
+        <section class="scroll-section flex items-center justify-center" id="section-0" data-section="0" style="min-height:120vh">
+            <div class="section-inner text-center">
+                <div class="skew-container">
+                    <div class="section-badge mb-12 reveal"><span class="badge-dot bg-neon-cyan"></span><span class="text-white/50">ҚАЗІРГІ ЗАМАНҒЫ ТЕХНОЛОГИЯЛЫҚ НЕГІЗДЕР</span></div>
+                    <h1 class="heading-display heading-xl mb-8">
+                        <span class="block text-white/90 reveal" data-delay="0">Химиялық</span>
+                        <span class="block text-gradient-cyan glow-cyan reveal" data-delay="0.1">өндірістің</span>
+                        <span class="block text-white/90 reveal" data-delay="0.2">ғылыми</span>
+                        <span class="block text-gradient-magenta reveal" data-delay="0.3">принциптері</span>
+                    </h1>
+                    <p class="text-lg md:text-xl text-white/40 max-w-2xl mx-auto mb-4 reveal" data-delay="0.4">Қазіргі заманғы технологиялық негіздер мен тиімділік</p>
+                    <p class="text-xs text-white/20 font-mono tracking-[0.3em] mb-16 reveal" data-delay="0.5">SCIENTIFIC PRINCIPLES OF CHEMICAL PRODUCTION</p>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+                        <div class="stat-card reveal" data-delay="0.6"><div class="stat-number text-gradient-cyan counter" data-target="7">0</div><div class="text-xs text-white/30 mt-3 font-mono tracking-wider">ПРИНЦИП</div></div>
+                        <div class="stat-card reveal" data-delay="0.7"><div class="stat-number text-gradient-magenta counter" data-target="97">0</div><div class="text-xs text-white/30 mt-3 font-mono tracking-wider">% ТИІМДІЛІК</div></div>
+                        <div class="stat-card reveal" data-delay="0.8"><div class="stat-number text-gradient-lime counter" data-target="5">0</div><div class="text-xs text-white/30 mt-3 font-mono tracking-wider">ӨҢІР</div></div>
+                        <div class="stat-card reveal" data-delay="0.9"><div class="stat-number text-gradient-gold">∞</div><div class="text-xs text-white/30 mt-3 font-mono tracking-wider">ҚАЛДЫҚСЫЗ</div></div>
+                    </div>
+                </div>
+                <div class="scroll-indicator reveal" data-delay="1"><div class="scroll-mouse"><div class="scroll-wheel"></div></div><span class="scroll-text">SCROLL TO EXPLORE</span></div>
+            </div>
+        </section>
+        
+        <div class="marquee py-8"><div class="marquee-content"><span>ХИМИЯ</span><span>•</span><span>ТЕХНОЛОГИЯ</span><span>•</span><span>ИННОВАЦИЯ</span><span>•</span><span>ӨНДІРІС</span><span>•</span><span>ХИМИЯ</span><span>•</span><span>ТЕХНОЛОГИЯ</span><span>•</span><span>ИННОВАЦИЯ</span><span>•</span><span>ӨНДІРІС</span><span>•</span></div></div>
+
+        <!-- SECTION 1: XXI CENTURY -->
+        <section class="scroll-section" id="section-1" data-section="1" style="min-height:140vh">
+            <div class="section-inner">
+                <div class="skew-container">
+                    <div class="text-center mb-20">
+                        <div class="section-badge mb-8 reveal"><span class="text-neon-gold">01</span><span class="text-white/40">КІРІСПЕ</span></div>
+                        <h2 class="heading-display heading-lg mb-6"><span class="text-white/90 reveal">XXI ғасыр —</span> <span class="text-gradient-gold reveal" data-delay="0.1">«Химия ғасыры»</span></h2>
+                        <p class="text-xs text-white/20 font-mono tracking-[0.2em] reveal" data-delay="0.2">THE 21ST CENTURY IS THE CENTURY OF CHEMISTRY</p>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+                        <div class="space-y-6">
+                            <div class="glass-card glow-gold p-8 reveal tilt-card" data-delay="0.1"><div class="tilt-card-inner"><h3 class="heading-display text-2xl font-bold text-white/90 mb-4">Химиялық өнеркәсіптің маңызы</h3><p class="text-white/50 leading-relaxed mb-4">Химиялық өнеркәсіп өнеркәсіптің басқа салаларының арасында ең маңызды орындардың біріне ие. Химиялық өнеркәсіптің маңыздылығы ол қазіргі заманда қоғамның өміріне өте қажетті көптеген өнімдерді дайындайды.</p><p class="text-white/50 leading-relaxed">Химия ғылымының теориялық жаңалықтарымен қоса, химия өндірісіде күшті қарқын мен күннен-күнге өсіп дамуда.</p></div></div>
+                            <div class="glass-card glow-cyan p-8 reveal tilt-card" data-delay="0.2"><div class="tilt-card-inner"><h3 class="heading-display text-2xl font-bold text-white/90 mb-4">Химиялық технология дегеніміз не?</h3><p class="text-white/50 leading-relaxed mb-4">Химиялық технология табиғи материалдардың өндіріс құралдарына және тұтыну құралдарына дейін өңделу процестерін қарастырады.</p><p class="text-white/50 leading-relaxed">Химиялық технологияда өңделетін заттардың химиялық құрамының өзгеруімен байланысқан процестер қарастырылады.</p></div></div>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="principle-card reveal" data-delay="0.3" style="--card-color:#00FFFF"><div class="flex items-start gap-4"><div class="w-14 h-14 rounded-2xl bg-neon-cyan/10 flex items-center justify-center flex-shrink-0 float-element"><span class="text-3xl">🏭</span></div><div><h4 class="font-bold text-white/90 mb-2">Көптоннажды өндіріс</h4><p class="text-sm text-white/40 leading-relaxed">Қазіргі заманғы химиялық өндіріс, негізі химиялық технология болатын, көптоннажды мамандандырылған өндіріс болып табылады.</p></div></div></div>
+                            <div class="principle-card reveal" data-delay="0.4" style="--card-color:#FF00FF"><div class="flex items-start gap-4"><div class="w-14 h-14 rounded-2xl bg-neon-magenta/10 flex items-center justify-center flex-shrink-0 float-element-delayed"><span class="text-3xl">⚗️</span></div><div><h4 class="font-bold text-white/90 mb-2">Табиғи материалдарды өңдеу</h4><p class="text-sm text-white/40 leading-relaxed">Негізгі мақсат: Табиғи материалдарды терең өңдеу арқылы жартылай өнімдер мен тұтыну тауарларын алу.</p></div></div></div>
+                            <div class="principle-card reveal" data-delay="0.5" style="--card-color:#39FF14"><div class="flex items-start gap-4"><div class="w-14 h-14 rounded-2xl bg-neon-lime/10 flex items-center justify-center flex-shrink-0 float-element"><span class="text-3xl">🔬</span></div><div><h4 class="font-bold text-white/90 mb-2">Химиялық құрамның өзгеруі</h4><p class="text-sm text-white/40 leading-relaxed">Технологиялық мәні: Заттардың химиялық құрамының өзгеру процестерін зерттеу.</p></div></div></div>
+                            <div class="principle-card reveal" data-delay="0.6" style="--card-color:#FFD700"><div class="flex items-start gap-4"><div class="w-14 h-14 rounded-2xl bg-neon-gold/10 flex items-center justify-center flex-shrink-0 float-element-delayed"><span class="text-3xl">📊</span></div><div><h4 class="font-bold text-white/90 mb-2">Стратегиялық сала</h4><p class="text-sm text-white/40 leading-relaxed">Химиялық өнеркәсіп — экономиканың ең маңызды стратегиялық саласы.</p></div></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: 7 PRINCIPLES -->
+        <section class="scroll-section" id="section-2" data-section="2" style="min-height:160vh">
+            <div class="section-inner">
+                <div class="skew-container">
+                    <div class="text-center mb-16">
+                        <div class="section-badge mb-8 reveal"><span class="text-white/60">02</span><span class="text-white/40">ЖАЛПЫ ШОЛУ</span></div>
+                        <h2 class="heading-display heading-lg mb-6"><span class="text-white/90 reveal">Химиялық өндірістің</span><br><span class="text-gradient-cyan reveal" data-delay="0.1">жалпы ғылыми принциптері</span></h2>
+                        <p class="text-white/40 max-w-3xl mx-auto reveal" data-delay="0.2">Бұрыннан келе жатқан көптеген химиялық өндірістер үшін жасалған ортақ технологиялық принциптер бар</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+                        <div class="glass-card glow-cyan p-6 reveal tilt-card" data-delay="0.1"><div class="tilt-card-inner"><div class="flex items-center gap-4 mb-4"><div class="w-14 h-14 rounded-2xl bg-neon-cyan/20 flex items-center justify-center"><span class="text-2xl font-bold text-neon-cyan font-display">01</span></div><div><h3 class="font-bold text-white/90">Өнеркәсіптік химия</h3><p class="text-xs text-white/30 font-mono">INDUSTRIAL CHEMISTRY</p></div></div><p class="text-sm text-white/40">Химиялық өндірістің негізгі заңдылықтары мен принциптері</p></div></div>
+                        <div class="glass-card glow-magenta p-6 reveal tilt-card" data-delay="0.15"><div class="tilt-card-inner"><div class="flex items-center gap-4 mb-4"><div class="w-14 h-14 rounded-2xl bg-neon-magenta/20 flex items-center justify-center"><span class="text-2xl font-bold text-neon-magenta font-display">02</span></div><div><h3 class="font-bold text-white/90">Технологиялық принциптер</h3><p class="text-xs text-white/30 font-mono">TECHNOLOGICAL PRINCIPLES</p></div></div><p class="text-sm text-white/40">Жалпы технологиялық принциптердің жүйесі</p></div></div>
+                        <div class="glass-card glow-lime p-6 reveal tilt-card" data-delay="0.2"><div class="tilt-card-inner"><div class="flex items-center gap-4 mb-4"><div class="w-14 h-14 rounded-2xl bg-neon-lime/20 flex items-center justify-center"><span class="text-2xl font-bold text-neon-lime font-display">03</span></div><div><h3 class="font-bold text-white/90">Процестің үздіксіздігі</h3><p class="text-xs text-white/30 font-mono">CONTINUOUS PROCESS</p></div></div><p class="text-sm text-white/40">Үздіксіз, периодты және айналымды процестер</p></div></div>
+                        <div class="glass-card glow-gold p-6 reveal tilt-card" data-delay="0.25"><div class="tilt-card-inner"><div class="flex items-center gap-4 mb-4"><div class="w-14 h-14 rounded-2xl bg-neon-gold/20 flex items-center justify-center"><span class="text-2xl font-bold text-neon-gold font-display">04</span></div><div><h3 class="font-bold text-white/90">Қарсы ағыс принципі</h3><p class="text-xs text-white/30 font-mono">COUNTER-CURRENT FLOW</p></div></div><p class="text-sm text-white/40">Әрекеттесуші заттардың қарама-қарсы бағытта қозғалуы</p></div></div>
+                        <div class="glass-card p-6 reveal tilt-card" data-delay="0.3" style="box-shadow:0 0 60px rgba(0,200,200,0.1)"><div class="tilt-card-inner"><div class="flex items-center gap-4 mb-4"><div class="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center"><span class="text-2xl font-bold text-cyan-400 font-display">05</span></div><div><h3 class="font-bold text-white/90">Жалған қайнайтын қабат</h3><p class="text-xs text-white/30 font-mono">FLUIDIZED BED</p></div></div><p class="text-sm text-white/40">Қатты бөлшектерді «жүзгін» күйге келтіру</p></div></div>
+                        <div class="glass-card p-6 reveal tilt-card" data-delay="0.35" style="box-shadow:0 0 60px rgba(255,107,53,0.1)"><div class="tilt-card-inner"><div class="flex items-center gap-4 mb-4"><div class="w-14 h-14 rounded-2xl bg-orange-500/20 flex items-center justify-center"><span class="text-2xl font-bold text-orange-400 font-display">06</span></div><div><h3 class="font-bold text-white/90">Реакция жылуын пайдалану</h3><p class="text-xs text-white/30 font-mono">HEAT UTILIZATION</p></div></div><p class="text-sm text-white/40">Экзотермиялық реакциялардың жылуын тиімді пайдалану</p></div></div>
+                    </div>
+                    <div class="glass-card glow-lime p-8 reveal tilt-card mb-16" data-delay="0.4"><div class="tilt-card-inner"><div class="flex flex-col md:flex-row items-start md:items-center gap-6"><div class="w-16 h-16 rounded-2xl bg-green-500/20 flex items-center justify-center flex-shrink-0"><span class="text-3xl font-bold text-green-400 font-display">07</span></div><div class="flex-1"><h3 class="heading-display text-xl font-bold text-white/90 mb-2">Өндірістік қалдықтарды қолдану принципі</h3><p class="text-xs text-white/30 font-mono mb-3">ZERO WASTE / CLOSED LOOP PRODUCTION</p><p class="text-sm text-white/40">Шикізаттарды комплексті пайдалану және қалдықсыз технология</p></div><div class="text-6xl opacity-10 float-element">♻️</div></div></div></div>
+                    <div class="glass-card p-8 reveal" data-delay="0.5"><h3 class="heading-display text-xl font-bold text-white/90 mb-8 text-center">Жалпы технологиялық принциптер тізбегі</h3><div class="process-flow"><div class="process-step"><span class="text-neon-cyan">Үздіксіздік</span></div><span class="process-arrow text-neon-cyan">→</span><div class="process-step"><span class="text-neon-magenta">Қарсы ағыс</span></div><span class="process-arrow text-neon-magenta">→</span><div class="process-step"><span class="text-neon-lime">Жалған қайнау</span></div><span class="process-arrow text-neon-lime">→</span><div class="process-step"><span class="text-neon-gold">Энерготехнология</span></div><span class="process-arrow text-neon-gold">→</span><div class="process-step"><span class="text-green-400">Қалдықсыз</span></div></div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: CONTINUOUS -->
+        <section class="scroll-section" id="section-3" data-section="3" style="min-height:140vh">
+            <div class="section-inner">
+                <div class="skew-container">
+                    <div class="text-center mb-16">
+                        <div class="section-badge mb-8 reveal"><span class="badge-dot bg-neon-cyan"></span><span class="text-neon-cyan">03</span><span class="text-white/40">PRINCIPLE</span></div>
+                        <h2 class="heading-display heading-lg mb-6"><span class="text-gradient-cyan reveal">Процестің</span> <span class="text-white/90 reveal" data-delay="0.1">үздіксіздігі</span></h2>
+                        <p class="text-xs text-white/20 font-mono tracking-[0.2em] mb-6 reveal" data-delay="0.2">CONTINUOUS PROCESS PRINCIPLE</p>
+                        <p class="text-white/40 max-w-3xl mx-auto reveal" data-delay="0.3">Қазіргі химиялық өнеркәсіп периодты әдістен өндірістің үздіксіз әдісіне өтуге ұмтылады</p>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="glass-card glow-cyan p-8 reveal tilt-card" data-delay="0.1"><div class="tilt-card-inner"><div class="w-16 h-16 rounded-2xl bg-neon-cyan/10 flex items-center justify-center mb-6 float-element"><svg class="w-8 h-8 text-neon-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg></div><h3 class="heading-display text-2xl font-bold text-neon-cyan mb-2">Үздіксіз процес</h3><p class="text-xs text-white/30 font-mono mb-4">CONTINUOUS</p><p class="text-white/50 leading-relaxed mb-6">Үздіксіз процестерде бастапқы шикізат реакциялық аппаратқа үздіксіз беріледі, ал химиялық реакция өнімдері аппараттан үздіксіз шығарылады.</p><div class="bg-white/5 rounded-xl p-4"><div class="flex items-center justify-between mb-2"><span class="text-white/30 font-mono text-xs">EFFICIENCY</span><span class="text-neon-cyan font-mono">+95%</span></div><div class="h-2 bg-white/10 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-neon-cyan to-blue-500 rounded-full efficiency-bar" data-width="95"></div></div></div></div></div>
+                        <div class="glass-card glow-magenta p-8 reveal tilt-card" data-delay="0.2"><div class="tilt-card-inner"><div class="w-16 h-16 rounded-2xl bg-neon-magenta/10 flex items-center justify-center mb-6 float-element-delayed"><svg class="w-8 h-8 text-neon-magenta" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></div><h3 class="heading-display text-2xl font-bold text-neon-magenta mb-2">Периодты</h3><p class="text-xs text-white/30 font-mono mb-4">PERIODIC / BATCH</p><p class="text-white/50 leading-relaxed mb-6">Периодты процестерде шикізат аппаратқа порциялармен беріледі, реакция аяқталғаннан кейін өнім шығарылады.</p><div class="bg-white/5 rounded-xl p-4"><div class="flex items-center justify-between mb-2"><span class="text-white/30 font-mono text-xs">FLEXIBILITY</span><span class="text-neon-magenta font-mono">HIGH</span></div><div class="h-2 bg-white/10 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-neon-magenta to-pink-500 rounded-full efficiency-bar" data-width="70"></div></div></div></div></div>
+                        <div class="glass-card glow-lime p-8 reveal tilt-card" data-delay="0.3"><div class="tilt-card-inner"><div class="w-16 h-16 rounded-2xl bg-neon-lime/10 flex items-center justify-center mb-6 float-element"><svg class="w-8 h-8 text-neon-lime" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></div><h3 class="heading-display text-2xl font-bold text-neon-lime mb-2">Айналымды</h3><p class="text-xs text-white/30 font-mono mb-4">CYCLIC / CIRCULATION</p><p class="text-white/50 leading-relaxed mb-6">Әрекеттеспеген қоспалар реагенттермен байытылғаннан кейін қайтадан аппаратқа бағытталады.</p><div class="bg-white/5 rounded-xl p-4"><div class="flex items-center justify-between mb-2"><span class="text-white/30 font-mono text-xs">RESOURCE SAVING</span><span class="text-neon-lime font-mono">+85%</span></div><div class="h-2 bg-white/10 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-neon-lime to-green-500 rounded-full efficiency-bar" data-width="85"></div></div></div></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: COUNTER-CURRENT -->
+        <section class="scroll-section" id="section-4" data-section="4" style="min-height:140vh">
+            <div class="section-inner">
+                <div class="skew-container">
+                    <div class="text-center mb-16">
+                        <div class="section-badge mb-8 reveal"><span class="badge-dot bg-neon-gold"></span><span class="text-neon-gold">04</span><span class="text-white/40">PRINCIPLE</span></div>
+                        <h2 class="heading-display heading-lg mb-6"><span class="text-gradient-gold reveal">Қарсы ағыс</span> <span class="text-white/90 reveal" data-delay="0.1">принципі</span></h2>
+                        <p class="text-xs text-white/20 font-mono tracking-[0.2em] reveal" data-delay="0.2">COUNTER-CURRENT FLOW PRINCIPLE</p>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                        <div class="space-y-6">
+                            <div class="glass-card glow-gold p-8 reveal tilt-card" data-delay="0.1"><div class="tilt-card-inner"><h3 class="heading-display text-2xl font-bold text-white/90 mb-4">Анықтамасы</h3><p class="text-white/50 leading-relaxed text-lg"><strong class="text-neon-gold">Қарсы ағыс</strong> деп — әрекеттесуші заттардың қарама-қарсы бағытта қозғалуын айтады.</p><p class="text-sm text-white/30 mt-4 font-mono">Counter-current flow refers to the movement of reacting substances in opposite directions.</p></div></div>
+                            <div class="glass-card glow-cyan p-8 reveal tilt-card" data-delay="0.2"><div class="tilt-card-inner"><h3 class="heading-display text-xl font-bold text-white/90 mb-4">Негізгі мақсаты</h3><p class="text-white/50 leading-relaxed">Химиялық реакцияларды максималды жылдамдату. Температура мен концентрация айырмашылығын тиімді пайдалану.</p></div></div>
+                        </div>
+                        <div class="demo-area flex items-center justify-center reveal" data-delay="0.3">
+                            <div class="flow-column">
+                                <div class="flow-up"></div><div class="flow-down"></div>
+                                <div class="flow-particle up" style="animation-delay:0s"></div><div class="flow-particle up" style="animation-delay:0.5s"></div><div class="flow-particle up" style="animation-delay:1s"></div><div class="flow-particle up" style="animation-delay:1.5s"></div><div class="flow-particle up" style="animation-delay:2s"></div>
+                                <div class="flow-particle down" style="animation-delay:0.25s"></div><div class="flow-particle down" style="animation-delay:0.75s"></div><div class="flow-particle down" style="animation-delay:1.25s"></div><div class="flow-particle down" style="animation-delay:1.75s"></div><div class="flow-particle down" style="animation-delay:2.25s"></div>
+                                <div class="flow-center"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-16"><h3 class="heading-display text-xl font-bold text-white/90 mb-8 text-center reveal">Қолданылу салалары</h3><div class="grid grid-cols-2 md:grid-cols-5 gap-4"><div class="principle-card text-center reveal" data-delay="0.1" style="--card-color:#00FFFF"><div class="text-3xl mb-3 float-element">🧪</div><h4 class="font-bold text-white/70 text-sm">Химиялық реакциялар</h4></div><div class="principle-card text-center reveal" data-delay="0.15" style="--card-color:#FF00FF"><div class="text-3xl mb-3 float-element-delayed">💨</div><h4 class="font-bold text-white/70 text-sm">Газдар сіңірілуі</h4></div><div class="principle-card text-center reveal" data-delay="0.2" style="--card-color:#FF6B35"><div class="text-3xl mb-3 float-element">🔥</div><h4 class="font-bold text-white/70 text-sm">Қатты дене балқуы</h4></div><div class="principle-card text-center reveal" data-delay="0.25" style="--card-color:#39FF14"><div class="text-3xl mb-3 float-element-delayed">❄️</div><h4 class="font-bold text-white/70 text-sm">Өнімдер салқындауы</h4></div><div class="principle-card text-center reveal" data-delay="0.3" style="--card-color:#FFD700"><div class="text-3xl mb-3 float-element">🌡️</div><h4 class="font-bold text-white/70 text-sm">Заттарды қыздыру</h4></div></div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 5: FLUIDIZED BED -->
+        <section class="scroll-section" id="section-5" data-section="5" style="min-height:140vh">
+            <div class="section-inner">
+                <div class="skew-container">
+                    <div class="text-center mb-16">
+                        <div class="section-badge mb-8 reveal"><span class="badge-dot bg-neon-lime"></span><span class="text-neon-lime">05</span><span class="text-white/40">PRINCIPLE</span></div>
+                        <h2 class="heading-display heading-lg mb-6"><span class="text-gradient-lime reveal">Жалған қайнайтын</span> <span class="text-white/90 reveal" data-delay="0.1">қабат</span></h2>
+                        <p class="text-xs text-white/20 font-mono tracking-[0.2em] reveal" data-delay="0.2">PSEUDO-LIQUEFIED / FLUIDIZED BED</p>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+                        <div class="space-y-6">
+                            <div class="glass-card glow-lime p-8 reveal tilt-card" data-delay="0.1"><div class="tilt-card-inner"><h3 class="heading-display text-2xl font-bold text-white/90 mb-4">Принциптің мәні</h3><p class="text-white/50 leading-relaxed mb-4">Қайнайтын қабаты түзілуі үшін аппараттың төменгі саңылауы арқылы газ тектес реагенттерді үрлейді, ал бұл кезде ондағы қатты заттар барлық уақытта жүзгін күйде болатындақтан қайнап жатқан сияқты болады.</p><p class="text-white/50 leading-relaxed">Бұл принцип химиялық өнер кәсіпте гетерогендік процестерді желдету үшін көп қолданылады.</p></div></div>
+                            <div class="glass-card glow-cyan p-8 reveal tilt-card" data-delay="0.2"><div class="tilt-card-inner"><h3 class="heading-display text-xl font-bold text-white/90 mb-4">Артықшылықтары</h3><ul class="space-y-3"><li class="flex items-start gap-3"><span class="text-neon-lime">✓</span><span class="text-white/50">Гетерогенді процестерді қарқындату</span></li><li class="flex items-start gap-3"><span class="text-neon-lime">✓</span><span class="text-white/50">Қатты бөлшектерді «жүзгін» күйге келтіру</span></li><li class="flex items-start gap-3"><span class="text-neon-lime">✓</span><span class="text-white/50">Жанасу бетін максималды арттыру</span></li><li class="flex items-start gap-3"><span class="text-neon-lime">✓</span><span class="text-white/50">Физикалық-химиялық әрекеттесудің жеделдеуі</span></li></ul></div></div>
+                            <div class="grid grid-cols-2 gap-4"><div class="stat-card reveal" data-delay="0.3"><div class="stat-number text-gradient-lime counter" data-target="1900">0</div><div class="text-xs text-white/30 mt-3 font-mono">% ЖЫЛУ АЛМАСУ</div></div><div class="stat-card reveal" data-delay="0.35"><div class="stat-number text-gradient-cyan">10-20×</div><div class="text-xs text-white/30 mt-3 font-mono">ЖЫЛДАМДЫҚ</div></div></div>
+                        </div>
+                        <div class="demo-area flex items-center justify-center reveal" data-delay="0.3" style="min-height:450px">
+                            <div class="fluidized-container">
+                                <div class="fluidized-particle" style="left:20%;top:60%;animation-delay:0s"></div><div class="fluidized-particle" style="left:40%;top:55%;animation-delay:0.2s"></div><div class="fluidized-particle" style="left:60%;top:65%;animation-delay:0.4s"></div><div class="fluidized-particle" style="left:30%;top:50%;animation-delay:0.6s"></div><div class="fluidized-particle" style="left:70%;top:58%;animation-delay:0.8s"></div><div class="fluidized-particle" style="left:50%;top:62%;animation-delay:1s"></div><div class="fluidized-particle" style="left:25%;top:68%;animation-delay:1.2s"></div><div class="fluidized-particle" style="left:55%;top:52%;animation-delay:1.4s"></div><div class="fluidized-particle" style="left:45%;top:70%;animation-delay:1.6s"></div><div class="fluidized-particle" style="left:65%;top:48%;animation-delay:1.8s"></div>
+                                <div class="gas-flow"><div class="gas-arrow" style="animation-delay:0s"></div><div class="gas-arrow" style="animation-delay:0.2s"></div><div class="gas-arrow" style="animation-delay:0.4s"></div></div>
+                            </div>
+                            <div class="absolute bottom-8 left-1/2 -translate-x-1/2 text-center"><span class="text-neon-lime font-mono text-xs tracking-wider">ГАЗ КІРУІ ↑</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 6: HEAT -->
+        <section class="scroll-section" id="section-6" data-section="6" style="min-height:140vh">
+            <div class="section-inner">
+                <div class="skew-container">
+                    <div class="text-center mb-16">
+                        <div class="section-badge mb-8 reveal"><span class="badge-dot bg-neon-orange"></span><span class="text-neon-orange">06</span><span class="text-white/40">PRINCIPLE</span></div>
+                        <h2 class="heading-display heading-lg mb-6"><span class="text-gradient-fire reveal">Реакция жылуын</span> <span class="text-white/90 reveal" data-delay="0.1">іске жарату</span></h2>
+                        <p class="text-xs text-white/20 font-mono tracking-[0.2em] reveal" data-delay="0.2">HEAT UTILIZATION / ENERGY TECHNOLOGY</p>
+                    </div>
+                    <div class="glass-card glow-gold p-8 lg:p-12 mb-12 reveal tilt-card" data-delay="0.1"><div class="tilt-card-inner max-w-4xl mx-auto text-center"><p class="text-xl lg:text-2xl text-white/60 leading-relaxed"><strong class="text-neon-orange">Реакция жылуын іске жарату</strong> — яғни химиялық реакциялардың жүруі нәтижесінде бөлінген жылуды бастапқы шикізаттарды қыздыруға немесе түзіген өнімдерді кейін жылумен өңдеуге қалдану болып табылады.</p></div></div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                        <div class="space-y-6">
+                            <div class="glass-card p-8 reveal tilt-card" data-delay="0.2" style="box-shadow:0 0 60px rgba(255,107,53,0.1)"><div class="tilt-card-inner"><h3 class="heading-display text-2xl font-bold text-white/90 mb-4">🔥 Домна пеші мысалы</h3><p class="text-xs text-white/30 font-mono mb-4">BLAST FURNACE EXAMPLE</p><p class="text-white/50 leading-relaxed">Шойын өндірісінде домна пешінде жүретін реакциялардың жылуы есебінен қыздырылған ауа беріледі. Бұл отынды үнемдеу мүмкіндігін береді.</p></div></div>
+                            <div class="glass-card glow-lime p-8 reveal tilt-card" data-delay="0.3"><div class="tilt-card-inner"><h3 class="heading-display text-xl font-bold text-white/90 mb-4">Экзотермиялық реакциялар</h3><p class="text-white/50 leading-relaxed mb-4">Экзотермиялық реакциялардың жылуын тиімді пайдалану — «жасыл» технологиялардың негізі.</p><ul class="space-y-2"><li class="flex items-center gap-2 text-white/40 text-sm"><span class="text-neon-lime">→</span>Отынды үнемдеу</li><li class="flex items-center gap-2 text-white/40 text-sm"><span class="text-neon-lime">→</span>Энергия шығындарын азайту</li><li class="flex items-center gap-2 text-white/40 text-sm"><span class="text-neon-lime">→</span>«Жасыл» технологиялар</li></ul></div></div>
+                        </div>
+                        <div class="demo-area flex items-center justify-center reveal" data-delay="0.3"><div class="heat-exchange"><div class="heat-side heat-hot"><span class="text-5xl">🔥</span></div><div class="heat-transfer"><span class="heat-arrow text-yellow-400">⟷</span></div><div class="heat-side heat-cold"><span class="text-5xl">❄️</span></div></div></div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12"><div class="stat-card reveal" data-delay="0.4"><div class="stat-number text-gradient-fire">97%</div><div class="text-xs text-white/30 mt-3 font-mono">EFFICIENCY</div></div><div class="stat-card reveal" data-delay="0.45"><div class="stat-number text-gradient-lime">-40%</div><div class="text-xs text-white/30 mt-3 font-mono">FUEL</div></div><div class="stat-card reveal" data-delay="0.5"><div class="stat-number text-gradient-cyan">+60%</div><div class="text-xs text-white/30 mt-3 font-mono">RECOVERY</div></div><div class="stat-card reveal" data-delay="0.55"><div class="stat-number text-gradient-gold">♻️</div><div class="text-xs text-white/30 mt-3 font-mono">GREEN TECH</div></div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 7: ZERO WASTE -->
+        <section class="scroll-section" id="section-7" data-section="7" style="min-height:140vh">
+            <div class="section-inner">
+                <div class="skew-container">
+                    <div class="text-center mb-16">
+                        <div class="section-badge mb-8 reveal"><span class="badge-dot bg-green-400"></span><span class="text-green-400">07</span><span class="text-white/40">PRINCIPLE</span></div>
+                        <h2 class="heading-display heading-lg mb-6"><span class="text-gradient-lime reveal">Қалдықсыз</span> <span class="text-white/90 reveal" data-delay="0.1">өндіріс</span></h2>
+                        <p class="text-xs text-white/20 font-mono tracking-[0.2em] reveal" data-delay="0.2">ZERO WASTE / CLOSED LOOP PRODUCTION</p>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
+                        <div class="glass-card glow-lime p-8 reveal tilt-card" data-delay="0.1"><div class="tilt-card-inner"><div class="w-16 h-16 rounded-2xl bg-green-500/10 flex items-center justify-center mb-6 float-element"><span class="text-4xl">📦</span></div><h3 class="heading-display text-2xl font-bold text-white/90 mb-4">Шикізаттарды комплексті пайдалану</h3><p class="text-xs text-white/30 font-mono mb-4">COMPLEX RAW MATERIAL UTILIZATION</p><p class="text-white/50 leading-relaxed mb-4">Шикізаттың барлық құрамдас бөліктерін пайдалану. Бүйірлік өнімдер мен қалдықтарды пайдалы өнімдерге айналдыру.</p><ul class="space-y-2"><li class="flex items-center gap-2 text-white/40 text-sm"><span class="text-green-400">✓</span>Барлық құрамдас бөліктерді пайдалану</li><li class="flex items-center gap-2 text-white/40 text-sm"><span class="text-green-400">✓</span>Бүйірлік өнімдерді қайта өңдеу</li><li class="flex items-center gap-2 text-white/40 text-sm"><span class="text-green-400">✓</span>Ресурстарды максималды пайдалану</li></ul></div></div>
+                        <div class="glass-card glow-cyan p-8 reveal tilt-card" data-delay="0.2"><div class="tilt-card-inner"><div class="w-16 h-16 rounded-2xl bg-cyan-500/10 flex items-center justify-center mb-6 float-element-delayed"><span class="text-4xl">♻️</span></div><h3 class="heading-display text-2xl font-bold text-white/90 mb-4">Қалдықсыз технология</h3><p class="text-xs text-white/30 font-mono mb-4">WASTE-FREE TECHNOLOGY</p><p class="text-white/50 leading-relaxed mb-4">Қалдықсыз немесе аз қалдықты технологияларды енгізу. Экологиялық зардаптарды азайту.</p><ul class="space-y-2"><li class="flex items-center gap-2 text-white/40 text-sm"><span class="text-cyan-400">✓</span>Қалдықсыз технологияларды енгізу</li><li class="flex items-center gap-2 text-white/40 text-sm"><span class="text-cyan-400">✓</span>Экологиялық зардаптарды азайту</li><li class="flex items-center gap-2 text-white/40 text-sm"><span class="text-cyan-400">✓</span>Қоршаған ортаны қорғау</li></ul></div></div>
+                    </div>
+                    <div class="glass-card p-8 lg:p-12 reveal" data-delay="0.3"><h3 class="heading-display text-xl font-bold text-white/90 mb-8 text-center">Тұйық цикл жүйесі / Closed Loop System</h3><div class="process-flow"><div class="process-step" style="background:rgba(0,255,255,0.05);border-color:rgba(0,255,255,0.2)"><span class="text-neon-cyan">ШИКІЗАТ</span></div><span class="process-arrow text-neon-cyan">→</span><div class="process-step" style="background:rgba(255,0,255,0.05);border-color:rgba(255,0,255,0.2)"><span class="text-neon-magenta">ӨҢДЕУ</span></div><span class="process-arrow text-neon-magenta">→</span><div class="process-step" style="background:rgba(57,255,20,0.05);border-color:rgba(57,255,20,0.2)"><span class="text-neon-lime">ӨНІМ</span></div><span class="process-arrow text-neon-lime">→</span><div class="process-step" style="background:rgba(255,215,0,0.05);border-color:rgba(255,215,0,0.2)"><span class="text-neon-gold">ҚАЛДЫҚ</span></div><span class="process-arrow text-green-400">→</span><div class="process-step" style="background:rgba(74,222,128,0.05);border-color:rgba(74,222,128,0.2)"><span class="text-green-400">♻️ ҚАЙТА</span></div><span class="process-arrow text-neon-cyan animate-pulse">↺</span></div><p class="text-center text-white/30 mt-8 font-mono text-sm">WASTE → INPUT • ҚАЛДЫҚ → ШИКІЗАТ</p></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 8: KAZAKHSTAN + CONCLUSION -->
+        <section class="scroll-section" id="section-8" data-section="8" style="min-height:160vh">
+            <div class="section-inner">
+                <div class="skew-container">
+                    <div class="text-center mb-16">
+                        <div class="section-badge mb-8 reveal"><span class="badge-dot bg-neon-cyan"></span><span class="text-neon-cyan">08</span><span class="text-white/40">KAZAKHSTAN</span></div>
+                        <h2 class="heading-display heading-lg mb-6"><span class="text-white/90 reveal">Қазақстанның</span><br><span class="text-gradient-cyan reveal" data-delay="0.1">химиялық өндірістік әлеуеті</span></h2>
+                        <p class="text-xs text-white/20 font-mono tracking-[0.2em] reveal" data-delay="0.2">KAZAKHSTAN'S CHEMICAL INDUSTRY POTENTIAL</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+                        <div class="glass-card glow-cyan p-6 reveal tilt-card" data-delay="0.1"><div class="tilt-card-inner"><h4 class="font-bold text-white/80 mb-2">Негізгі орталықтар</h4><p class="text-sm text-white/40">Шымкент, Тараз, Ақтөбе, Павлодар, Атырау</p></div></div>
+                        <div class="glass-card glow-gold p-6 reveal tilt-card" data-delay="0.15"><div class="tilt-card-inner"><h4 class="font-bold text-white/80 mb-2">Шикізат базасы</h4><p class="text-sm text-white/40">Мұнай, табиғи газ және түсті металдар</p></div></div>
+                        <div class="glass-card glow-lime p-6 reveal tilt-card" data-delay="0.2"><div class="tilt-card-inner"><h4 class="font-bold text-white/80 mb-2">Экономикадағы рөлі</h4><p class="text-sm text-white/40">Елдің экономикалық дамуындағы химияның рөлі</p></div></div>
+                        <div class="glass-card glow-magenta p-6 reveal tilt-card" data-delay="0.25"><div class="tilt-card-inner"><h4 class="font-bold text-white/80 mb-2">Даму перспективалары</h4><p class="text-sm text-white/40">Индустриялық-инновациялық даму</p></div></div>
+                    </div>
+                    <div class="glass-card glow-cyan p-8 lg:p-12 reveal mb-20" data-delay="0.3">
+                        <div class="map-container">
+                            <svg viewBox="0 0 800 400" class="w-full h-full opacity-30"><path d="M50,200 Q80,120 150,100 L250,80 Q350,60 450,70 L550,90 Q650,100 720,140 L750,180 Q760,220 740,260 L700,300 Q650,330 550,340 L450,350 Q350,360 250,340 L150,300 Q80,270 50,200 Z" fill="rgba(0,255,255,0.03)" stroke="rgba(0,255,255,0.2)" stroke-width="2"/></svg>
+                            <div class="map-node" style="top:45%;left:15%"><div class="map-node-inner"><div class="map-node-pulse"></div><div class="map-node-core"></div></div><span class="map-label">АТЫРАУ</span></div>
+                            <div class="map-node" style="top:30%;left:25%"><div class="map-node-inner"><div class="map-node-pulse" style="animation-delay:0.3s"></div><div class="map-node-core"></div></div><span class="map-label">АҚТӨБЕ</span></div>
+                            <div class="map-node" style="top:20%;left:70%"><div class="map-node-inner"><div class="map-node-pulse" style="animation-delay:0.6s"></div><div class="map-node-core"></div></div><span class="map-label">ПАВЛОДАР</span></div>
+                            <div class="map-node" style="top:70%;left:55%"><div class="map-node-inner"><div class="map-node-pulse" style="animation-delay:0.9s"></div><div class="map-node-core"></div></div><span class="map-label">ШЫМКЕНТ</span></div>
+                            <div class="map-node" style="top:65%;left:65%"><div class="map-node-inner"><div class="map-node-pulse" style="animation-delay:1.2s"></div><div class="map-node-core"></div></div><span class="map-label">ТАРАЗ</span></div>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="section-badge mb-8 reveal"><span class="text-white/60">09</span><span class="text-white/40">ҚОРЫТЫНДЫ</span></div>
+                        <h2 class="heading-display text-3xl md:text-4xl font-bold mb-8"><span class="text-white/90 reveal">Қорытынды және</span> <span class="text-gradient-cyan reveal" data-delay="0.1">негізгі тұжырымдар</span></h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16 text-left max-w-4xl mx-auto">
+                            <div class="glass-card glow-cyan p-8 reveal tilt-card" data-delay="0.2"><div class="tilt-card-inner"><p class="text-white/60 leading-relaxed"><strong class="text-neon-cyan">Химиялық өндіріс</strong> — ғылыми қағидаттарға негізделген күрделі жүйе. 7 принцип қазіргі заманғы химиялық өнеркәсіптің негізін құрайды.</p></div></div>
+                            <div class="glass-card glow-lime p-8 reveal tilt-card" data-delay="0.3"><div class="tilt-card-inner"><p class="text-white/60 leading-relaxed"><strong class="text-neon-lime">Тиімділік, энергия үнемдеу және экологиялық қауіпсіздік</strong> — басты басымдықтар. Принциптерді сақтау — болашақтың кепілі.</p></div></div>
+                        </div>
+                        <div class="glass-card p-8 lg:p-12 reveal mb-12 max-w-2xl mx-auto" data-delay="0.4"><div class="text-6xl mb-6 float-element">🔬</div><h3 class="heading-display text-2xl lg:text-3xl font-bold text-white/90 mb-4">Назар аударғандарыңызға рақмет!</h3><p class="text-white/40 font-mono">THANK YOU FOR YOUR ATTENTION!</p><p class="text-white/20 font-mono text-sm mt-4">Сұрақтарыңыз бар ма? / Any questions?</p></div>
+                        <div class="reveal" data-delay="0.5"><p class="text-white/15 text-xs font-mono tracking-[0.2em] mb-4">© 2024 ХИМИЯЛЫҚ ӨНДІРІСТІҢ ҒЫЛЫМИ ПРИНЦИПТЕРІ</p><p class="text-white/10 text-xs font-mono">BUILT WITH THREE.JS • GSAP • LENIS • TAILWIND CSS</p></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+    // STATE
+    const STATE = { scrollProgress: 0, velocity: 0, currentSection: 0, mouseX: 0, mouseY: 0, isLoaded: false };
+    
+    // CURSOR
+    const cursor = document.getElementById('cursor');
+    const cursorDot = document.getElementById('cursor-dot');
+    let cursorX = 0, cursorY = 0, dotX = 0, dotY = 0, targetX = 0, targetY = 0;
+    
+    document.addEventListener('mousemove', (e) => {
+        targetX = e.clientX;
+        targetY = e.clientY;
+        STATE.mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+        STATE.mouseY = -(e.clientY / window.innerHeight - 0.5) * 2;
+    });
+    
+    function animateCursor() {
+        cursorX += (targetX - cursorX) * 0.15;
+        cursorY += (targetY - cursorY) * 0.15;
+        dotX += (targetX - dotX) * 0.35;
+        dotY += (targetY - dotY) * 0.35;
+        cursor.style.left = cursorX + 'px';
+        cursor.style.top = cursorY + 'px';
+        cursorDot.style.left = dotX + 'px';
+        cursorDot.style.top = dotY + 'px';
+        requestAnimationFrame(animateCursor);
+    }
+    animateCursor();
+    
+    document.querySelectorAll('a, button, .glass-card, .tilt-card, .principle-card, .nav-dot, .map-node, .stat-card').forEach(el => {
+        el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
+        el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
+    });
+    document.addEventListener('mousedown', () => cursor.classList.add('clicking'));
+    document.addEventListener('mouseup', () => cursor.classList.remove('clicking'));
+    
+    // 3D TILT
+    document.querySelectorAll('.tilt-card').forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const rotateX = (y - centerY) / 20;
+            const rotateY = (centerX - x) / 20;
+            const inner = card.querySelector('.tilt-card-inner');
+            if (inner) inner.style.transform = 'perspective(1000px) rotateX(' + rotateX + 'deg) rotateY(' + rotateY + 'deg)';
+            card.style.setProperty('--mouse-x', (x / rect.width) * 100 + '%');
+            card.style.setProperty('--mouse-y', (y / rect.height) * 100 + '%');
+        });
+        card.addEventListener('mouseleave', () => {
+            const inner = card.querySelector('.tilt-card-inner');
+            if (inner) inner.style.transform = 'perspective(1000px) rotateX(0) rotateY(0)';
+        });
+    });
+    
+    // LENIS
+    let lenis;
+    try {
+        lenis = new Lenis({
+            duration: 1.4,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            orientation: 'vertical',
+            gestureOrientation: 'vertical',
+            smoothWheel: true,
+            wheelMultiplier: 0.8,
+            touchMultiplier: 1.5,
+            lerp: 0.06
+        });
+        lenis.on('scroll', ScrollTrigger.update);
+        gsap.ticker.add((time) => { lenis.raf(time * 1000); });
+        gsap.ticker.lagSmoothing(0);
+        lenis.on('scroll', ({ velocity }) => {
+            STATE.velocity = velocity;
+            const skew = Math.max(-4, Math.min(4, velocity / 400));
+            gsap.to('.skew-container', { skewY: skew, duration: 0.5, ease: 'power2.out' });
+        });
+    } catch (e) { console.warn('Lenis error:', e); }
+    
+    // THREE.JS
+    let scene, camera, renderer, clock, particles;
+    
+    function initThree() {
+        const canvas = document.getElementById('webgl-canvas');
+        scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050508, 0.0012);
+        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 60;
+        renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        renderer.setClearColor(0x050508, 1);
+        clock = new THREE.Clock();
+        createParticles();
+        animate();
+    }
+    
+    function createParticles() {
+        const count = 4000;
+        const positions = new Float32Array(count * 3);
+        const colors = new Float32Array(count * 3);
+        const palette = [
+            new THREE.Color(0x00FFFF),
+            new THREE.Color(0xFF00FF),
+            new THREE.Color(0x39FF14),
+            new THREE.Color(0xFFD700),
+            new THREE.Color(0xFF6B35)
+        ];
+        for (let i = 0; i < count; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 400;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 400;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 200 - 50;
+            const c = palette[Math.floor(Math.random() * palette.length)];
+            colors[i * 3] = c.r;
+            colors[i * 3 + 1] = c.g;
+            colors[i * 3 + 2] = c.b;
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        const mat = new THREE.PointsMaterial({
+            size: 1.2,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.4,
+            sizeAttenuation: true,
+            blending: THREE.AdditiveBlending
+        });
+        particles = new THREE.Points(geo, mat);
+        scene.add(particles);
+    }
+    
+    function animate() {
+        requestAnimationFrame(animate);
+        const t = clock.getElapsedTime();
+        if (particles) {
+            particles.rotation.y = t * 0.01;
+            particles.rotation.x = Math.sin(t * 0.005) * 0.03;
+            particles.position.x += (STATE.mouseX * 8 - particles.position.x) * 0.02;
+            particles.position.y += (STATE.mouseY * 8 - particles.position.y) * 0.02;
+        }
+        camera.position.y = -STATE.scrollProgress * 120;
+        camera.lookAt(0, camera.position.y, 0);
+        renderer.render(scene, camera);
+    }
+    
+    // GSAP ANIMATIONS
+    function initAnimations() {
+        gsap.registerPlugin(ScrollTrigger);
+        
+        gsap.to('#progress-bar', {
+            scaleX: 1,
+            ease: 'none',
+            scrollTrigger: { trigger: 'body', start: 'top top', end: 'bottom bottom', scrub: 0.5 }
+        });
+        
+        ScrollTrigger.create({
+            trigger: 'body',
+            start: 'top top',
+            end: 'bottom bottom',
+            onUpdate: (self) => { STATE.scrollProgress = self.progress; }
+        });
+        
+        document.querySelectorAll('.reveal').forEach((el) => {
+            const delay = parseFloat(el.dataset.delay) || 0;
+            gsap.fromTo(el,
+                { opacity: 0, y: 80 },
+                { opacity: 1, y: 0, duration: 1.2, delay, ease: 'power3.out',
+                  scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none reverse' }
+                }
+            );
+        });
+        
+        document.querySelectorAll('.counter').forEach(counter => {
+            const target = parseInt(counter.dataset.target);
+            if (isNaN(target)) return;
+            ScrollTrigger.create({
+                trigger: counter,
+                start: 'top 80%',
+                onEnter: () => {
+                    gsap.fromTo(counter, { innerText: 0 }, { innerText: target, duration: 2.5, snap: { innerText: 1 }, ease: 'power2.out' });
+                }
+            });
+        });
+        
+        document.querySelectorAll('.efficiency-bar').forEach(bar => {
+            const w = bar.dataset.width || 0;
+            gsap.fromTo(bar, { width: '0%' }, { width: w + '%', duration: 1.5, ease: 'power2.out', scrollTrigger: { trigger: bar, start: 'top 80%' } });
+        });
+        
+        document.querySelectorAll('[data-section]').forEach((s, i) => {
+            ScrollTrigger.create({
+                trigger: s,
+                start: 'top 50%',
+                end: 'bottom 50%',
+                onEnter: () => updateNavDot(i),
+                onEnterBack: () => updateNavDot(i)
+            });
+        });
+    }
+    
+    function updateNavDot(i) {
+        STATE.currentSection = i;
+        document.querySelectorAll('.nav-dot').forEach((d, j) => { d.classList.toggle('active', j === i); });
+    }
+    
+    document.querySelectorAll('.nav-dot').forEach(dot => {
+        dot.addEventListener('click', () => {
+            const i = parseInt(dot.dataset.section);
+            const t = document.getElementById('section-' + i);
+            if (t) {
+                if (lenis) lenis.scrollTo(t, { offset: 0, duration: 1.5 });
+                else t.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    });
+    
+    // LOADER
+    function hideLoader() {
+        const loader = document.getElementById('loader');
+        const bar = document.getElementById('loader-progress');
+        const pct = document.getElementById('loader-percentage');
+        let p = 0;
+        const iv = setInterval(() => {
+            p += Math.random() * 15;
+            if (p > 100) p = 100;
+            bar.style.width = p + '%';
+            pct.textContent = Math.floor(p);
+            if (p >= 100) {
+                clearInterval(iv);
+                gsap.to(loader, {
+                    opacity: 0,
+                    duration: 0.8,
+                    delay: 0.3,
+                    ease: 'power2.inOut',
+                    onComplete: () => { loader.style.display = 'none'; STATE.isLoaded = true; }
+                });
+            }
+        }, 60);
+    }
+    
+    function onResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    
+    window.addEventListener('load', () => {
+        initThree();
+        initAnimations();
+        window.addEventListener('resize', onResize);
+        hideLoader();
+    });
+    </script>
+</body>
+</html>
